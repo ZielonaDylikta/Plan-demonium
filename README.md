@@ -31,16 +31,6 @@ Clean GitHub-ready copy of the Planner Stats app.
    npm start
    ```
 
-## Create and push a new GitHub repo
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/<your-user>/<your-repo>.git
-git push -u origin main
-```
-
 ## License
 Licensed under the Apache License 2.0. See [LICENSE](./LICENSE).
 
