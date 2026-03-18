@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Martin's Plan-demonium</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <h1><span>Martin's</span> Plan-demonium</h1>
+
+  <div class="top-bar">
+    <div class="combo-wrap" id="comboWrap">
+      <input type="text" class="combo-input" id="comboInput" placeholder="Search or select a plan..." autocomplete="off" />
+      <div class="combo-list" id="comboList"></div>
+    </div>
+    <button class="btn" id="overviewBtn">Overview</button>
+    <button class="btn" id="workloadBtn">Team Workload</button>
+  </div>
+
+  <section class="mode-context" id="modeContext" aria-live="polite">
+    <span class="mode-badge" id="modeBadge">Overview</span>
+    <div>
+      <h2 id="modeTitle">Portfolio Overview</h2>
+      <p id="modeSubtitle">Cross-project KPIs and plan health.</p>
+    </div>
+  </section>
+
+  <div id="overviewShell">
+    <section class="risk-strip" id="riskStrip" aria-label="Portfolio risks"></section>
+    <section class="change-strip" id="changeStrip" aria-live="polite"></section>
+
+    <div id="portfolioView">
+      <div class="portfolio" id="portfolio"></div>
+      <div class="overview-wrap" id="overview"></div>
+    </div>
+  </div>
+
+  <div id="planView" style="display:none">
+    <section class="insight-strip" id="insightStrip" aria-live="polite"></section>
+    <section class="triage-panel" id="triagePanel" aria-label="Priority task triage"></section>
+    <div class="chart-container" id="chartArea">
+      <canvas id="chart"></canvas>
+    </div>
+    <div class="hint" id="chartHint"></div>
+    <div class="export-bar" id="exportBar">
+      <button class="btn" id="csvBtn">Download CSV</button>
+      <button class="btn" id="pdfBtn">Export Brief PDF</button>
+      <button class="btn" id="pngBtn">Export Snapshot PNG</button>
+      <button class="btn" id="backBtn">Back to Overview</button>
+    </div>
+    <div id="drilldown"></div>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <div id="workloadView">
+    <div class="workload-chart-wrap"><canvas id="workloadChart"></canvas></div>
+    <div class="workload-table-wrap" id="workloadTable"></div>
+    <div style="margin-top:12px"><button class="btn" id="workloadBackBtn">Back to Overview</button></div>
+  </div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
