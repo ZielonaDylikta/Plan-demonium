@@ -1,0 +1,59 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "version": "2.0.0",
+  "manifestVersion": "1.25",
+  "id": "11111111-1111-1111-1111-111111111111",
+  "name": {
+    "short": "Plan-demonium",
+    "full": "Martin's Plan-demonium"
+  },
+  "developer": {
+    "name": "ZielonaDylikta",
+    "websiteUrl": "https://your-app-domain.example.com",
+    "privacyUrl": "https://your-app-domain.example.com/privacy",
+    "termsOfUseUrl": "https://your-app-domain.example.com/terms"
+  },
+  "description": {
+    "short": "Planner dashboard tab for Teams channels",
+    "full": "Microsoft Planner dashboard in Teams with KPI views, risk insights, workload analytics, and brief exports."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#0F766E",
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://your-app-domain.example.com",
+      "canUpdateConfiguration": true,
+      "scopes": [
+        "team"
+      ],
+      "context": [
+        "channelTab"
+      ]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "22222222-2222-2222-2222-222222222222",
+      "name": "Plan-demonium",
+      "contentUrl": "https://your-app-domain.example.com/",
+      "scopes": [
+        "personal",
+        "groupChat",
+        "team"
+      ]
+    }
+  ],
+  "validDomains": [
+    "your-app-domain.example.com",
+    "login.microsoftonline.com",
+    "*.microsoftonline.com"
+  ],
+  "webApplicationInfo": {
+    "id": "33333333-3333-3333-3333-333333333333",
+    "resource": "api://your-app-domain.example.com/33333333-3333-3333-3333-333333333333"
+  },
+  "supportsChannelFeatures": "tier1"
+}

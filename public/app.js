@@ -19,11 +19,57 @@ const portfolioView = document.getElementById("portfolioView");
 const planView = document.getElementById("planView");
 const workloadView = document.getElementById("workloadView");
 const workloadBtn = document.getElementById("workloadBtn");
+const feedbackBtn = document.getElementById("feedbackBtn");
+const adminBtn = document.getElementById("adminBtn");
 const workloadBackBtn = document.getElementById("workloadBackBtn");
 const backBtn = document.getElementById("backBtn");
 const csvBtn = document.getElementById("csvBtn");
 const pdfBtn = document.getElementById("pdfBtn");
 const pngBtn = document.getElementById("pngBtn");
+const feedbackModal = document.getElementById("feedbackModal");
+const feedbackForm = document.getElementById("feedbackForm");
+const feedbackTypeInput = document.getElementById("feedbackType");
+const feedbackMessageInput = document.getElementById("feedbackMessage");
+const feedbackContactInput = document.getElementById("feedbackContact");
+const feedbackStatus = document.getElementById("feedbackStatus");
+const feedbackSubmitBtn = document.getElementById("feedbackSubmitBtn");
+const feedbackCloseBtn = document.getElementById("feedbackCloseBtn");
+const feedbackCancelBtn = document.getElementById("feedbackCancelBtn");
+const feedbackExportSection = document.getElementById("feedbackExportSection");
+const feedbackExportLockedView = document.getElementById("feedbackExportLockedView");
+const feedbackExportUnlockedView = document.getElementById("feedbackExportUnlockedView");
+const feedbackExportStatus = document.getElementById("feedbackExportStatus");
+const feedbackExportUnlockedStatus = document.getElementById("feedbackExportUnlockedStatus");
+const feedbackExportSessionMeta = document.getElementById("feedbackExportSessionMeta");
+const feedbackExportUnlockBtn = document.getElementById("feedbackExportUnlockBtn");
+const feedbackExportLockBtn = document.getElementById("feedbackExportLockBtn");
+const feedbackExportDownloadBtn = document.getElementById("feedbackExportDownloadBtn");
+const feedbackExportKeyModal = document.getElementById("feedbackExportKeyModal");
+const feedbackExportKeyCloseBtn = document.getElementById("feedbackExportKeyCloseBtn");
+const feedbackExportModalKeyInput = document.getElementById("feedbackExportModalKeyInput");
+const feedbackExportModalStatus = document.getElementById("feedbackExportModalStatus");
+const feedbackExportModalCancelBtn = document.getElementById("feedbackExportModalCancelBtn");
+const feedbackExportModalSubmitBtn = document.getElementById("feedbackExportModalSubmitBtn");
+const adminModal = document.getElementById("adminModal");
+const adminCloseBtn = document.getElementById("adminCloseBtn");
+const adminLockedView = document.getElementById("adminLockedView");
+const adminUnlockedView = document.getElementById("adminUnlockedView");
+const adminPinInput = document.getElementById("adminPinInput");
+const adminUnlockBtn = document.getElementById("adminUnlockBtn");
+const adminStatus = document.getElementById("adminStatus");
+const adminSessionMeta = document.getElementById("adminSessionMeta");
+const adminTemplateSelect = document.getElementById("adminTemplateSelect");
+const adminTemplateNameInput = document.getElementById("adminTemplateNameInput");
+const adminTemplateCreateBtn = document.getElementById("adminTemplateCreateBtn");
+const adminTemplateDeleteBtn = document.getElementById("adminTemplateDeleteBtn");
+const adminChannelBindingList = document.getElementById("adminChannelBindingList");
+const adminChannelStatus = document.getElementById("adminChannelStatus");
+const adminIncludeAll = document.getElementById("adminIncludeAll");
+const adminPlanSearch = document.getElementById("adminPlanSearch");
+const adminPlanList = document.getElementById("adminPlanList");
+const adminSaveStatus = document.getElementById("adminSaveStatus");
+const adminSaveBtn = document.getElementById("adminSaveBtn");
+const adminLogoutBtn = document.getElementById("adminLogoutBtn");
 
 let chart = null;
 let workloadChart = null;
@@ -61,6 +107,947 @@ const COLORS = {
 };
 
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const DEV_KEY_STORAGE_KEY = "planDemoniumDevKey";
+const devKeyFromQuery = new URLSearchParams(window.location.search).get("devKey");
+if (devKeyFromQuery) localStorage.setItem(DEV_KEY_STORAGE_KEY, devKeyFromQuery);
+
+let authToken = null;
+let teamsAuthEnabled = false;
+let devAccessKey = localStorage.getItem(DEV_KEY_STORAGE_KEY) || "";
+let uiConfig = {
+  feedbackEnabled: false,
+  feedbackExportEnabled: false,
+  adminEnabled: false,
+  scope: null,
+};
+let adminPlans = [];
+let adminTemplates = [];
+let adminActiveTemplateId = null;
+let adminChannels = [];
+let adminSelection = {
+  includeAll: true,
+  selectedPlanIds: [],
+};
+let adminPlanFilterText = "";
+let adminSessionExpiresAt = null;
+let feedbackExportSessionExpiresAt = null;
+let teamsChannelId = "";
+const localAuthDebugRequest =
+  new URLSearchParams(window.location.search).get("authDebug") === "1" ||
+  localStorage.getItem("authDebug") === "1";
+let serverAuthDebugEnabled = false;
+const authDiagnostics = [];
+
+function shouldShowAuthDiagnostics() {
+  return serverAuthDebugEnabled && localAuthDebugRequest;
+}
+
+async function loadUiConfig() {
+  try {
+    const response = await authFetch("/ui-config", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json();
+    uiConfig = {
+      feedbackEnabled: data?.feedbackEnabled === true,
+      feedbackExportEnabled: data?.feedbackExportEnabled === true,
+      adminEnabled: data?.adminEnabled === true,
+      scope: data?.scope || null,
+    };
+  } catch {
+    uiConfig = {
+      feedbackEnabled: false,
+      feedbackExportEnabled: false,
+      adminEnabled: false,
+      scope: null,
+    };
+  }
+}
+
+function setFeedbackStatus(message, tone = "") {
+  if (!feedbackStatus) return;
+  feedbackStatus.textContent = message || "";
+  feedbackStatus.classList.remove("success", "error");
+  if (tone) feedbackStatus.classList.add(tone);
+}
+
+function setFeedbackExportStatus(message, tone = "", target = feedbackExportStatus) {
+  if (!target) return;
+  target.textContent = message || "";
+  target.classList.remove("success", "error");
+  if (tone) target.classList.add(tone);
+}
+
+function setFeedbackExportModalStatus(message, tone = "") {
+  setFeedbackExportStatus(message, tone, feedbackExportModalStatus);
+}
+
+function openFeedbackExportKeyModal() {
+  if (!feedbackExportKeyModal) return;
+  feedbackExportKeyModal.style.display = "flex";
+  feedbackExportKeyModal.setAttribute("aria-hidden", "false");
+  setFeedbackExportModalStatus("");
+  if (feedbackExportModalKeyInput) {
+    feedbackExportModalKeyInput.value = "";
+    feedbackExportModalKeyInput.focus();
+  }
+}
+
+function closeFeedbackExportKeyModal() {
+  if (!feedbackExportKeyModal) return;
+  feedbackExportKeyModal.style.display = "none";
+  feedbackExportKeyModal.setAttribute("aria-hidden", "true");
+  setFeedbackExportModalStatus("");
+  if (feedbackExportModalKeyInput) feedbackExportModalKeyInput.value = "";
+}
+
+function setFeedbackExportUnlockedState(isUnlocked) {
+  if (!feedbackExportLockedView || !feedbackExportUnlockedView) return;
+  feedbackExportLockedView.style.display = isUnlocked ? "none" : "";
+  feedbackExportUnlockedView.style.display = isUnlocked ? "" : "none";
+  if (feedbackExportUnlockBtn) {
+    feedbackExportUnlockBtn.style.display = isUnlocked ? "none" : "";
+  }
+}
+
+function setFeedbackExportSessionMetaText() {
+  if (!feedbackExportSessionMeta) return;
+  if (!feedbackExportSessionExpiresAt) {
+    feedbackExportSessionMeta.textContent = "";
+    return;
+  }
+  const expires = new Date(feedbackExportSessionExpiresAt);
+  feedbackExportSessionMeta.textContent = `Unlocked until ${expires.toLocaleString()}`;
+}
+
+async function verifyFeedbackExportSession() {
+  const session = await fetchJson("/api/feedback/export/session");
+  if (session.error) {
+    feedbackExportSessionExpiresAt = null;
+    setFeedbackExportUnlockedState(false);
+    setFeedbackExportSessionMetaText();
+    return {
+      ok: false,
+      error: session.error,
+    };
+  }
+
+  feedbackExportSessionExpiresAt = session.expiresAt || null;
+  setFeedbackExportUnlockedState(true);
+  setFeedbackExportSessionMetaText();
+  return { ok: true };
+}
+
+async function unlockFeedbackExport() {
+  const key = String(feedbackExportModalKeyInput?.value || "").trim();
+  if (!key) {
+    setFeedbackExportModalStatus("Developer key is required.", "error");
+    if (feedbackExportModalKeyInput) feedbackExportModalKeyInput.focus();
+    return { ok: false };
+  }
+
+  if (feedbackExportModalSubmitBtn) feedbackExportModalSubmitBtn.disabled = true;
+  if (feedbackExportUnlockBtn) feedbackExportUnlockBtn.disabled = true;
+  setFeedbackExportModalStatus("Unlocking...");
+  setFeedbackExportStatus("Unlocking...");
+
+  try {
+    const data = await fetchJson("/api/feedback/export/unlock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+
+    if (data.error) {
+      setFeedbackExportStatus(data.error, "error");
+      setFeedbackExportModalStatus(data.error, "error");
+      return { ok: false };
+    }
+
+    const sessionState = await verifyFeedbackExportSession();
+    if (!sessionState.ok) {
+      setFeedbackExportStatus(
+        sessionState.error || "Feedback export session could not be established.",
+        "error"
+      );
+      setFeedbackExportModalStatus(
+        sessionState.error || "Feedback export session could not be established.",
+        "error"
+      );
+      return { ok: false };
+    }
+    setFeedbackExportStatus("");
+    setFeedbackExportStatus("Export unlocked.", "success", feedbackExportUnlockedStatus);
+    setFeedbackExportModalStatus("");
+    return { ok: true };
+  } catch {
+    setFeedbackExportStatus("Failed to unlock export.", "error");
+    setFeedbackExportModalStatus("Failed to unlock export.", "error");
+    return { ok: false };
+  } finally {
+    if (feedbackExportModalSubmitBtn) feedbackExportModalSubmitBtn.disabled = false;
+    if (feedbackExportUnlockBtn) feedbackExportUnlockBtn.disabled = false;
+  }
+}
+
+async function submitFeedbackExportUnlock() {
+  const result = await unlockFeedbackExport();
+  if (result.ok) {
+    closeFeedbackExportKeyModal();
+  }
+}
+
+async function lockFeedbackExport() {
+  if (feedbackExportLockBtn) feedbackExportLockBtn.disabled = true;
+  try {
+    await fetchJson("/api/feedback/export/logout", {
+      method: "POST",
+    });
+  } finally {
+    feedbackExportSessionExpiresAt = null;
+    setFeedbackExportUnlockedState(false);
+    setFeedbackExportSessionMetaText();
+    setFeedbackExportStatus("Session locked.", "success");
+    setFeedbackExportStatus("", "", feedbackExportUnlockedStatus);
+    if (feedbackExportLockBtn) feedbackExportLockBtn.disabled = false;
+  }
+}
+
+async function downloadFeedbackExportCsv() {
+  if (feedbackExportDownloadBtn) feedbackExportDownloadBtn.disabled = true;
+  setFeedbackExportStatus("Preparing CSV...", "", feedbackExportUnlockedStatus);
+
+  try {
+    const response = await authFetch("/api/feedback/export.csv", {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      let errorText = "Failed to export CSV.";
+      try {
+        const data = await response.json();
+        if (data?.error) errorText = data.error;
+      } catch {
+        // Keep generic error.
+      }
+
+      if (response.status === 403) {
+        feedbackExportSessionExpiresAt = null;
+        setFeedbackExportUnlockedState(false);
+        setFeedbackExportSessionMetaText();
+      }
+      setFeedbackExportStatus(errorText, "error", feedbackExportUnlockedStatus);
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `feedback-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setFeedbackExportStatus("CSV downloaded.", "success", feedbackExportUnlockedStatus);
+  } catch {
+    setFeedbackExportStatus("Failed to export CSV.", "error", feedbackExportUnlockedStatus);
+  } finally {
+    if (feedbackExportDownloadBtn) feedbackExportDownloadBtn.disabled = false;
+  }
+}
+
+async function refreshFeedbackExportView() {
+  if (!feedbackExportSection) return;
+
+  const enabled = uiConfig.feedbackEnabled && uiConfig.feedbackExportEnabled;
+  feedbackExportSection.style.display = enabled ? "" : "none";
+  if (!enabled) {
+    feedbackExportSessionExpiresAt = null;
+    setFeedbackExportUnlockedState(false);
+    if (feedbackExportUnlockBtn) feedbackExportUnlockBtn.style.display = "none";
+    return;
+  }
+
+  setFeedbackExportStatus("");
+  setFeedbackExportStatus("", "", feedbackExportUnlockedStatus);
+  const sessionState = await verifyFeedbackExportSession();
+  if (!sessionState.ok) return;
+}
+
+function openFeedbackModal() {
+  if (!feedbackModal) return;
+  setFeedbackStatus("");
+  setFeedbackExportStatus("");
+  setFeedbackExportStatus("", "", feedbackExportUnlockedStatus);
+  feedbackModal.style.display = "flex";
+  feedbackModal.setAttribute("aria-hidden", "false");
+  if (feedbackTypeInput) feedbackTypeInput.value = "general";
+  if (feedbackMessageInput) feedbackMessageInput.focus();
+  refreshFeedbackExportView().catch(() => {
+    setFeedbackExportStatus("Failed to load export access state.", "error");
+  });
+}
+
+function closeFeedbackModal() {
+  if (!feedbackModal) return;
+  feedbackModal.style.display = "none";
+  feedbackModal.setAttribute("aria-hidden", "true");
+  if (feedbackForm) feedbackForm.reset();
+  setFeedbackStatus("");
+  setFeedbackExportStatus("");
+  setFeedbackExportStatus("", "", feedbackExportUnlockedStatus);
+}
+
+function setAdminStatus(message, tone = "", target = adminStatus) {
+  if (!target) return;
+  target.textContent = message || "";
+  target.classList.remove("success", "error");
+  if (tone) target.classList.add(tone);
+}
+
+function setAdminUnlockedState(isUnlocked) {
+  if (!adminLockedView || !adminUnlockedView) return;
+  adminLockedView.style.display = isUnlocked ? "none" : "";
+  adminUnlockedView.style.display = isUnlocked ? "" : "none";
+}
+
+function renderAdminPlanList() {
+  if (!adminPlanList) return;
+
+  if (!adminPlans.length) {
+    adminPlanList.innerHTML = '<div class="guided-state" style="margin:6px 0">No plans available</div>';
+    return;
+  }
+
+  const selected = new Set(adminSelection.selectedPlanIds);
+  const includeAll = Boolean(adminSelection.includeAll);
+  const q = adminPlanFilterText.trim().toLowerCase();
+  const visiblePlans = q
+    ? adminPlans.filter((plan) => String(plan.title || "").toLowerCase().includes(q))
+    : adminPlans;
+
+  if (!visiblePlans.length) {
+    adminPlanList.innerHTML = '<div class="guided-state" style="margin:6px 0">No plans match your search</div>';
+    return;
+  }
+
+  adminPlanList.innerHTML = visiblePlans
+    .map((plan) => {
+      const checked = includeAll || selected.has(plan.id);
+      return `<label class="admin-plan-item">
+        <input type="checkbox" class="admin-plan-checkbox" data-plan-id="${escapeHtml(plan.id)}" ${
+          checked ? "checked" : ""
+        } ${includeAll ? "disabled" : ""} />
+        <span>${escapeHtml(plan.title || plan.id)}</span>
+      </label>`;
+    })
+    .join("");
+}
+
+function setAdminSessionMetaText() {
+  if (!adminSessionMeta) return;
+  if (!adminSessionExpiresAt) {
+    adminSessionMeta.textContent = "";
+    return;
+  }
+  const expires = new Date(adminSessionExpiresAt);
+  adminSessionMeta.textContent = `Unlocked until ${expires.toLocaleString()}`;
+}
+
+function renderAdminTemplateControls() {
+  if (!adminTemplateSelect) return;
+
+  adminTemplateSelect.innerHTML = adminTemplates
+    .map((template) => {
+      const selected = template.id === adminActiveTemplateId ? " selected" : "";
+      return `<option value="${escapeHtml(template.id)}"${selected}>${escapeHtml(
+        template.name || template.id
+      )}</option>`;
+    })
+    .join("");
+
+  if (adminTemplateDeleteBtn) {
+    adminTemplateDeleteBtn.disabled = adminTemplates.length <= 1;
+  }
+}
+
+function getAdminTemplateName(templateId) {
+  return adminTemplates.find((template) => template.id === templateId)?.name || templateId;
+}
+
+function setAdminChannelStatus(message, tone = "") {
+  setAdminStatus(message, tone, adminChannelStatus);
+}
+
+function renderAdminChannelBindings() {
+  if (!adminChannelBindingList) return;
+
+  if (!adminChannels.length) {
+    adminChannelBindingList.innerHTML =
+      '<div class="guided-state" style="margin:6px 0">No channels discovered for this Team</div>';
+    return;
+  }
+
+  const activeTemplateName = getAdminTemplateName(adminActiveTemplateId) || "active template";
+  const templateOptions = [
+    `<option value="">Use active template (${escapeHtml(activeTemplateName)})</option>`,
+    ...adminTemplates.map(
+      (template) =>
+        `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name || template.id)}</option>`
+    ),
+  ].join("");
+
+  adminChannelBindingList.innerHTML = adminChannels
+    .map((channel) => {
+      const selectedValue = String(channel.templateId || "");
+      return `<label class="admin-plan-item" style="display:block">
+        <span>
+          <strong>${escapeHtml(channel.displayName || channel.id)}</strong>
+          <small style="color:var(--text-secondary);display:block">${escapeHtml(
+            channel.membershipType || "standard"
+          )}</small>
+        </span>
+        <select class="admin-channel-template-select" data-channel-id="${escapeHtml(channel.id)}">${templateOptions}</select>
+      </label>`;
+    })
+    .join("");
+
+  adminChannelBindingList
+    .querySelectorAll(".admin-channel-template-select[data-channel-id]")
+    .forEach((selectNode) => {
+      const channelId = selectNode.dataset.channelId;
+      const selected = String(
+        adminChannels.find((channel) => channel.id === channelId)?.templateId || ""
+      );
+      selectNode.value = selected;
+    });
+}
+
+async function loadAdminScopeData() {
+  const [plansData, selectionData, templatesData, channelsData] = await Promise.all([
+    fetchJson("/api/admin/plans"),
+    fetchJson("/api/admin/selection"),
+    fetchJson("/api/admin/templates"),
+    fetchJson("/api/admin/channels"),
+  ]);
+
+  if (plansData.error) throw new Error(plansData.error);
+  if (selectionData.error) throw new Error(selectionData.error);
+  if (templatesData.error) throw new Error(templatesData.error);
+
+  adminPlans = Array.isArray(plansData) ? plansData : [];
+  adminTemplates = Array.isArray(templatesData.templates) ? templatesData.templates : [];
+  adminActiveTemplateId = String(
+    templatesData.activeTemplateId || selectionData.templateId || ""
+  );
+  adminChannels = Array.isArray(channelsData.channels)
+    ? channelsData.channels.map((channel) => ({
+        id: String(channel.id || ""),
+        displayName: String(channel.displayName || channel.id || "").trim(),
+        membershipType: String(channel.membershipType || "standard"),
+        templateId: channel.templateId ? String(channel.templateId) : null,
+      }))
+    : [];
+  adminSelection = {
+    includeAll: Boolean(selectionData.includeAll),
+    selectedPlanIds: Array.isArray(selectionData.selectedPlanIds)
+      ? selectionData.selectedPlanIds.map((id) => String(id))
+      : [],
+  };
+  adminPlanFilterText = "";
+
+  renderAdminTemplateControls();
+  renderAdminChannelBindings();
+  if (adminIncludeAll) adminIncludeAll.checked = adminSelection.includeAll;
+  if (adminPlanSearch) adminPlanSearch.value = "";
+  if (channelsData.error) {
+    setAdminChannelStatus(channelsData.error, "error");
+  } else {
+    setAdminChannelStatus("");
+  }
+  renderAdminPlanList();
+}
+
+async function saveAdminChannelBinding(channelId, templateId) {
+  const normalizedChannelId = String(channelId || "").trim();
+  if (!normalizedChannelId) return;
+
+  setAdminChannelStatus("Saving channel binding...");
+  try {
+    const data = await fetchJson(
+      `/api/admin/channel-bindings/${encodeURIComponent(normalizedChannelId)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: templateId || "" }),
+      }
+    );
+    if (data.error) {
+      setAdminChannelStatus(data.error, "error");
+      await loadAdminScopeData();
+      return;
+    }
+
+    adminChannels = adminChannels.map((channel) =>
+      channel.id === normalizedChannelId
+        ? {
+            ...channel,
+            templateId: templateId || null,
+          }
+        : channel
+    );
+    renderAdminChannelBindings();
+    setAdminChannelStatus("Channel binding saved.", "success");
+    await refreshDashboardDataForScope();
+  } catch {
+    setAdminChannelStatus("Failed to save channel binding.", "error");
+  }
+}
+
+async function activateAdminTemplate(templateId) {
+  if (!templateId) return;
+  if (adminTemplateSelect) adminTemplateSelect.disabled = true;
+  setAdminStatus("Switching template...", "", adminSaveStatus);
+
+  try {
+    const data = await fetchJson(`/api/admin/templates/${encodeURIComponent(templateId)}/activate`, {
+      method: "POST",
+    });
+    if (data.error) {
+      setAdminStatus(data.error, "error", adminSaveStatus);
+      return;
+    }
+
+    await loadAdminScopeData();
+    setAdminStatus("Template activated. Refreshing dashboard...", "success", adminSaveStatus);
+    await refreshDashboardDataForScope();
+  } catch {
+    setAdminStatus("Failed to activate template.", "error", adminSaveStatus);
+  } finally {
+    if (adminTemplateSelect) adminTemplateSelect.disabled = false;
+  }
+}
+
+async function createAdminTemplateFromCurrent() {
+  const name = String(adminTemplateNameInput?.value || "").trim();
+  if (!name) {
+    setAdminStatus("Enter a template name.", "error", adminSaveStatus);
+    if (adminTemplateNameInput) adminTemplateNameInput.focus();
+    return;
+  }
+
+  if (adminTemplateCreateBtn) adminTemplateCreateBtn.disabled = true;
+  setAdminStatus("Creating template...", "", adminSaveStatus);
+
+  try {
+    const includeAll = Boolean(adminIncludeAll?.checked);
+    const selectedPlanIds = includeAll ? [] : [...new Set(adminSelection.selectedPlanIds)];
+    const data = await fetchJson("/api/admin/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, includeAll, selectedPlanIds }),
+    });
+
+    if (data.error) {
+      setAdminStatus(data.error, "error", adminSaveStatus);
+      return;
+    }
+
+    if (adminTemplateNameInput) adminTemplateNameInput.value = "";
+    await loadAdminScopeData();
+    setAdminStatus("Template created and activated.", "success", adminSaveStatus);
+    await refreshDashboardDataForScope();
+  } catch {
+    setAdminStatus("Failed to create template.", "error", adminSaveStatus);
+  } finally {
+    if (adminTemplateCreateBtn) adminTemplateCreateBtn.disabled = false;
+  }
+}
+
+async function deleteActiveAdminTemplate() {
+  const templateId = String(adminTemplateSelect?.value || "");
+  if (!templateId) return;
+  if (!window.confirm("Delete this scope template?")) return;
+
+  if (adminTemplateDeleteBtn) adminTemplateDeleteBtn.disabled = true;
+  setAdminStatus("Deleting template...", "", adminSaveStatus);
+
+  try {
+    const data = await fetchJson(`/api/admin/templates/${encodeURIComponent(templateId)}`, {
+      method: "DELETE",
+    });
+    if (data.error) {
+      setAdminStatus(data.error, "error", adminSaveStatus);
+      return;
+    }
+
+    await loadAdminScopeData();
+    setAdminStatus("Template deleted. Refreshing dashboard...", "success", adminSaveStatus);
+    await refreshDashboardDataForScope();
+  } catch {
+    setAdminStatus("Failed to delete template.", "error", adminSaveStatus);
+  } finally {
+    if (adminTemplateDeleteBtn) adminTemplateDeleteBtn.disabled = adminTemplates.length <= 1;
+  }
+}
+
+async function refreshDashboardDataForScope() {
+  await loadPlans();
+  await loadOverview();
+  if (currentView === "workload") {
+    await loadWorkload();
+  }
+}
+
+async function verifyAdminSession() {
+  const session = await fetchJson("/api/admin/session");
+  if (session.error) {
+    adminSessionExpiresAt = null;
+    setAdminUnlockedState(false);
+    return {
+      ok: false,
+      error: session.error,
+    };
+  }
+
+  adminSessionExpiresAt = session.expiresAt || null;
+  setAdminUnlockedState(true);
+  setAdminSessionMetaText();
+  try {
+    await loadAdminScopeData();
+    return { ok: true };
+  } catch (err) {
+    setAdminStatus(err?.message || "Admin scope failed to load.", "error", adminSaveStatus);
+    return { ok: true };
+  }
+}
+
+async function openAdminModal() {
+  if (!adminModal) return;
+  adminModal.style.display = "flex";
+  adminModal.setAttribute("aria-hidden", "false");
+  setAdminStatus("");
+  setAdminStatus("", "", adminSaveStatus);
+
+  try {
+    const sessionState = await verifyAdminSession();
+    if (!sessionState.ok && adminPinInput) {
+      adminPinInput.value = "";
+      adminPinInput.focus();
+      if (sessionState.error) setAdminStatus(sessionState.error, "error");
+    }
+  } catch (err) {
+    setAdminUnlockedState(false);
+    setAdminStatus(err?.message || "Failed to open admin controls.", "error");
+  }
+}
+
+function closeAdminModal() {
+  if (!adminModal) return;
+  adminModal.style.display = "none";
+  adminModal.setAttribute("aria-hidden", "true");
+  setAdminStatus("");
+  setAdminStatus("", "", adminSaveStatus);
+}
+
+async function unlockAdmin() {
+  if (!adminPinInput) return;
+  const pin = adminPinInput.value.trim();
+  if (!/^\d{6}$/.test(pin)) {
+    setAdminStatus("PIN must be 6 digits.", "error");
+    adminPinInput.focus();
+    return;
+  }
+
+  if (adminUnlockBtn) adminUnlockBtn.disabled = true;
+  setAdminStatus("Unlocking...");
+
+  try {
+    const data = await fetchJson("/api/admin/unlock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+
+    if (data.error) {
+      setAdminStatus(data.error, "error");
+      return;
+    }
+
+    adminPinInput.value = "";
+    const sessionState = await verifyAdminSession();
+    if (!sessionState.ok) {
+      setAdminStatus(sessionState.error || "Admin session could not be established.", "error");
+      return;
+    }
+    setAdminStatus("", "");
+    setAdminStatus("Admin unlocked.", "success", adminSaveStatus);
+  } catch {
+    setAdminStatus("Failed to unlock admin session.", "error");
+  } finally {
+    if (adminUnlockBtn) adminUnlockBtn.disabled = false;
+  }
+}
+
+async function saveAdminSelection() {
+  const includeAll = Boolean(adminIncludeAll?.checked);
+  const selectedPlanIds = includeAll ? [] : [...new Set(adminSelection.selectedPlanIds)];
+
+  if (!includeAll && selectedPlanIds.length === 0) {
+    setAdminStatus("Select at least one plan, or enable View all plans.", "error", adminSaveStatus);
+    return;
+  }
+
+  if (adminSaveBtn) adminSaveBtn.disabled = true;
+  setAdminStatus("Saving scope...", "", adminSaveStatus);
+
+  try {
+    const data = await fetchJson("/api/admin/selection", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        includeAll,
+        selectedPlanIds,
+      }),
+    });
+
+    if (data.error) {
+      setAdminStatus(data.error, "error", adminSaveStatus);
+      return;
+    }
+
+    adminSelection = {
+      includeAll: Boolean(data.includeAll),
+      selectedPlanIds: Array.isArray(data.selectedPlanIds) ? data.selectedPlanIds : [],
+    };
+    if (adminIncludeAll) adminIncludeAll.checked = adminSelection.includeAll;
+    renderAdminPlanList();
+    setAdminStatus("Scope saved. Refreshing dashboard...", "success", adminSaveStatus);
+    await refreshDashboardDataForScope();
+  } catch {
+    setAdminStatus("Failed to save scope.", "error", adminSaveStatus);
+  } finally {
+    if (adminSaveBtn) adminSaveBtn.disabled = false;
+  }
+}
+
+async function logoutAdmin() {
+  if (adminLogoutBtn) adminLogoutBtn.disabled = true;
+  try {
+    await fetchJson("/api/admin/logout", {
+      method: "POST",
+    });
+  } finally {
+    adminSessionExpiresAt = null;
+    setAdminUnlockedState(false);
+    setAdminSessionMetaText();
+    setAdminStatus("Session locked.", "success");
+    if (adminLogoutBtn) adminLogoutBtn.disabled = false;
+  }
+}
+
+async function handleFeedbackSubmit(e) {
+  e.preventDefault();
+  if (!feedbackMessageInput || !feedbackTypeInput || !feedbackContactInput) return;
+
+  const message = feedbackMessageInput.value.trim();
+  if (!message) {
+    setFeedbackStatus("Please enter feedback before sending.", "error");
+    feedbackMessageInput.focus();
+    return;
+  }
+
+  if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = true;
+  setFeedbackStatus("Sending...");
+
+  try {
+    const data = await fetchJson("/api/feedback", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: feedbackTypeInput.value === "bug" ? "bug" : "general",
+        message,
+        contact: feedbackContactInput.value.trim(),
+      }),
+    });
+
+    if (data.error) {
+      setFeedbackStatus(data.error, "error");
+      return;
+    }
+
+    setFeedbackStatus("Thanks! Your feedback was submitted.", "success");
+    setTimeout(() => {
+      closeFeedbackModal();
+    }, 650);
+  } catch {
+    setFeedbackStatus("Failed to submit feedback. Please try again.", "error");
+  } finally {
+    if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = false;
+  }
+}
+
+async function loadAuthConfig() {
+  try {
+    const response = await fetch("/auth-config", { cache: "no-store" });
+    if (!response.ok) {
+      serverAuthDebugEnabled = false;
+      return;
+    }
+    const data = await response.json();
+    serverAuthDebugEnabled = data?.authDebug === true;
+  } catch {
+    serverAuthDebugEnabled = false;
+  }
+}
+
+function recordAuthDiagnostic(event, details = {}) {
+  const timestamp = new Date().toISOString();
+  authDiagnostics.push({ timestamp, event, ...details });
+  if (authDiagnostics.length > 20) authDiagnostics.shift();
+  if (shouldShowAuthDiagnostics()) {
+    console.log("[auth-ui]", event, details);
+  }
+}
+
+function buildAuthDebugHtml() {
+  if (!shouldShowAuthDiagnostics()) return "";
+  if (!authDiagnostics.length) return "";
+  const rows = authDiagnostics
+    .slice()
+    .reverse()
+    .map((entry) => {
+      const { timestamp, event, ...rest } = entry;
+      const detail = Object.entries(rest)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(" | ");
+      return `<li><strong>${escapeHtml(event)}</strong> <small>${escapeHtml(timestamp)}</small><br><span>${escapeHtml(detail || "-")}</span></li>`;
+    })
+    .join("");
+  return `<details open style="margin-top:12px"><summary>Auth diagnostics</summary><ol style="margin-top:8px;padding-left:20px">${rows}</ol></details>`;
+}
+
+function renderAuthError(message) {
+  const html = `<div class="error">${escapeHtml(message)}${buildAuthDebugHtml()}</div>`;
+  overviewDiv.innerHTML = html;
+  drilldownDiv.innerHTML = "";
+  summaryDiv.innerHTML = "";
+  chartHint.textContent = "";
+}
+
+async function initAuthSession() {
+  recordAuthDiagnostic("auth_init_start", {
+    teamsSdkPresent: Boolean(window.microsoftTeams?.app && window.microsoftTeams?.authentication),
+    hasDevKey: Boolean(devAccessKey),
+  });
+
+  if (window.microsoftTeams?.app && window.microsoftTeams?.authentication) {
+    try {
+      await window.microsoftTeams.app.initialize();
+      recordAuthDiagnostic("teams_init_ok");
+      try {
+        const teamsContext = await window.microsoftTeams.app.getContext();
+        teamsChannelId =
+          String(
+            teamsContext?.channel?.id ||
+              teamsContext?.channelId ||
+              teamsContext?.chat?.id ||
+              ""
+          ).trim();
+        recordAuthDiagnostic("teams_context_ok", {
+          hasChannelId: Boolean(teamsChannelId),
+        });
+      } catch {
+        teamsChannelId = "";
+        recordAuthDiagnostic("teams_context_failed");
+      }
+      authToken = await window.microsoftTeams.authentication.getAuthToken();
+      teamsAuthEnabled = true;
+      recordAuthDiagnostic("teams_token_ok", {
+        tokenLength: String(authToken || "").length,
+      });
+      return true;
+    } catch (err) {
+      const message = err?.message || "unknown_error";
+      const code = err?.errorCode || err?.code || "none";
+      recordAuthDiagnostic("teams_token_failed", { code, message });
+      console.warn("[auth] Teams SSO initialization failed:", err?.message || err);
+    }
+  }
+
+  if (devAccessKey) {
+    recordAuthDiagnostic("dev_key_mode_enabled");
+    return true;
+  }
+
+  renderAuthError(
+    "Authentication required. Open this dashboard as a Teams tab."
+  );
+  return false;
+}
+
+async function authFetch(input, init = {}, allowRetry = true) {
+  const headers = new Headers(init.headers || {});
+  const requestPath = typeof input === "string" ? input : String(input?.url || "");
+  if (teamsChannelId) {
+    headers.set("x-teams-channel-id", teamsChannelId);
+  }
+  if (authToken) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+    recordAuthDiagnostic("api_request", { path: requestPath, mode: "bearer" });
+  } else if (devAccessKey) {
+    headers.set("x-dev-access-key", devAccessKey);
+    recordAuthDiagnostic("api_request", { path: requestPath, mode: "dev-key" });
+  } else {
+    recordAuthDiagnostic("api_request", { path: requestPath, mode: "none" });
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+  });
+
+  if (response.status === 401 && allowRetry && teamsAuthEnabled) {
+    recordAuthDiagnostic("api_401_retry", { path: requestPath });
+    try {
+      authToken = await window.microsoftTeams.authentication.getAuthToken();
+      recordAuthDiagnostic("teams_token_refresh_ok", {
+        tokenLength: String(authToken || "").length,
+      });
+      return authFetch(input, init, false);
+    } catch {
+      recordAuthDiagnostic("teams_token_refresh_failed", { path: requestPath });
+      // Let caller handle final 401 response.
+    }
+  }
+
+  if (response.status === 401) {
+    recordAuthDiagnostic("api_401_final", {
+      path: requestPath,
+      traceId: response.headers.get("x-auth-trace-id") || "none",
+    });
+  }
+
+  return response;
+}
+
+async function fetchJson(input, init = {}) {
+  const response = await authFetch(input, init);
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok && !data.error) {
+    data.error = `Request failed (${response.status})`;
+  }
+
+  return data;
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -458,8 +1445,7 @@ document.addEventListener("click", (e) => {
 
 async function loadPlans() {
   try {
-    const res = await fetch("/api/plans");
-    const plans = await res.json();
+    const plans = await fetchJson("/api/plans");
     if (plans.error) return;
     allPlans = plans;
   } catch {
@@ -628,8 +1614,7 @@ async function showUnassigned() {
   csvBtn.style.display = "none";
 
   try {
-    const res = await fetch("/api/unassigned");
-    const data = await res.json();
+    const data = await fetchJson("/api/unassigned");
     if (data.error) {
       drilldownDiv.innerHTML = `<div class="error">${escapeHtml(data.error)}</div>`;
       return;
@@ -789,8 +1774,7 @@ async function loadOverview() {
   deltasLoaded = false;
   renderChangeStrip();
   try {
-    const res = await fetch("/api/overview");
-    const data = await res.json();
+    const data = await fetchJson("/api/overview");
     if (data.error) {
       overviewDiv.innerHTML = `<div class="error">${escapeHtml(data.error)}</div>`;
       return;
@@ -810,8 +1794,7 @@ async function loadOverview() {
 
 async function loadDeltas() {
   try {
-    const res = await fetch("/api/deltas");
-    const data = await res.json();
+    const data = await fetchJson("/api/deltas");
     if (!data.error) {
       deltaSnapshot = data;
     }
@@ -830,8 +1813,7 @@ async function loadDeltas() {
 
 async function loadRiskWorkload() {
   try {
-    const res = await fetch("/api/workload");
-    const data = await res.json();
+    const data = await fetchJson("/api/workload");
     if (!data.error) {
       workloadSnapshot = data;
       renderRiskStrip();
@@ -942,8 +1924,9 @@ function sortOverview(field) {
 
 async function loadTrends() {
   try {
-    const res = await fetch("/api/trends");
-    trendData = await res.json();
+    const data = await fetchJson("/api/trends");
+    if (data.error) return;
+    trendData = data;
     renderSparklines();
   } catch {
     // silent fail for trends
@@ -979,8 +1962,7 @@ async function loadStats(planId) {
   chartHint.textContent = "";
 
   try {
-    const res = await fetch(`/api/plans/${encodeURIComponent(planId)}/stats`);
-    const stats = await res.json();
+    const stats = await fetchJson(`/api/plans/${encodeURIComponent(planId)}/stats`);
     if (stats.error) {
       summaryDiv.innerHTML = `<div class="error">${escapeHtml(stats.error)}</div>`;
       return;
@@ -1287,8 +2269,11 @@ async function toggleNotes(button, taskId) {
   );
 
   try {
-    const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/details`);
-    const data = await res.json();
+    const data = await fetchJson(`/api/tasks/${encodeURIComponent(taskId)}/details`);
+    if (data.error) {
+      tempRow.innerHTML = `<td colspan="${colSpan}" style="color:var(--red)">${escapeHtml(data.error)}</td>`;
+      return;
+    }
     const desc = data.description || "No description available.";
     tempRow.innerHTML = `<td colspan="${colSpan}">${escapeHtml(desc)}</td>`;
   } catch {
@@ -1527,6 +2512,135 @@ workloadBtn.addEventListener("click", loadWorkload);
 workloadBackBtn.addEventListener("click", goBack);
 backBtn.addEventListener("click", goBack);
 overviewBtn.addEventListener("click", goBack);
+if (feedbackBtn) {
+  feedbackBtn.addEventListener("click", openFeedbackModal);
+}
+if (feedbackCloseBtn) {
+  feedbackCloseBtn.addEventListener("click", closeFeedbackModal);
+}
+if (feedbackCancelBtn) {
+  feedbackCancelBtn.addEventListener("click", closeFeedbackModal);
+}
+if (feedbackModal) {
+  feedbackModal.addEventListener("click", (e) => {
+    if (e.target === feedbackModal) closeFeedbackModal();
+  });
+}
+if (feedbackForm) {
+  feedbackForm.addEventListener("submit", handleFeedbackSubmit);
+}
+if (feedbackExportUnlockBtn) {
+  feedbackExportUnlockBtn.addEventListener("click", openFeedbackExportKeyModal);
+}
+if (feedbackExportLockBtn) {
+  feedbackExportLockBtn.addEventListener("click", lockFeedbackExport);
+}
+if (feedbackExportDownloadBtn) {
+  feedbackExportDownloadBtn.addEventListener("click", downloadFeedbackExportCsv);
+}
+if (feedbackExportKeyCloseBtn) {
+  feedbackExportKeyCloseBtn.addEventListener("click", closeFeedbackExportKeyModal);
+}
+if (feedbackExportModalCancelBtn) {
+  feedbackExportModalCancelBtn.addEventListener("click", closeFeedbackExportKeyModal);
+}
+if (feedbackExportModalSubmitBtn) {
+  feedbackExportModalSubmitBtn.addEventListener("click", submitFeedbackExportUnlock);
+}
+if (feedbackExportModalKeyInput) {
+  feedbackExportModalKeyInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitFeedbackExportUnlock();
+    }
+  });
+}
+if (feedbackExportKeyModal) {
+  feedbackExportKeyModal.addEventListener("click", (e) => {
+    if (e.target === feedbackExportKeyModal) closeFeedbackExportKeyModal();
+  });
+}
+if (adminBtn) {
+  adminBtn.addEventListener("click", openAdminModal);
+}
+if (adminCloseBtn) {
+  adminCloseBtn.addEventListener("click", closeAdminModal);
+}
+if (adminModal) {
+  adminModal.addEventListener("click", (e) => {
+    if (e.target === adminModal) closeAdminModal();
+  });
+}
+if (adminUnlockBtn) {
+  adminUnlockBtn.addEventListener("click", unlockAdmin);
+}
+if (adminPinInput) {
+  adminPinInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      unlockAdmin();
+    }
+  });
+}
+if (adminIncludeAll) {
+  adminIncludeAll.addEventListener("change", () => {
+    adminSelection.includeAll = adminIncludeAll.checked;
+    renderAdminPlanList();
+    setAdminStatus("", "", adminSaveStatus);
+  });
+}
+if (adminTemplateSelect) {
+  adminTemplateSelect.addEventListener("change", () => {
+    const templateId = String(adminTemplateSelect.value || "").trim();
+    activateAdminTemplate(templateId);
+  });
+}
+if (adminTemplateCreateBtn) {
+  adminTemplateCreateBtn.addEventListener("click", createAdminTemplateFromCurrent);
+}
+if (adminTemplateDeleteBtn) {
+  adminTemplateDeleteBtn.addEventListener("click", deleteActiveAdminTemplate);
+}
+if (adminTemplateNameInput) {
+  adminTemplateNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      createAdminTemplateFromCurrent();
+    }
+  });
+}
+if (adminChannelBindingList) {
+  adminChannelBindingList.addEventListener("change", (e) => {
+    const selectNode = e.target.closest(".admin-channel-template-select[data-channel-id]");
+    if (!selectNode) return;
+    const channelId = String(selectNode.dataset.channelId || "");
+    const templateId = String(selectNode.value || "");
+    saveAdminChannelBinding(channelId, templateId);
+  });
+}
+if (adminPlanList) {
+  adminPlanList.addEventListener("change", (e) => {
+    const checkbox = e.target.closest(".admin-plan-checkbox[data-plan-id]");
+    if (!checkbox) return;
+    const selected = new Set(adminSelection.selectedPlanIds);
+    if (checkbox.checked) selected.add(checkbox.dataset.planId);
+    else selected.delete(checkbox.dataset.planId);
+    adminSelection.selectedPlanIds = [...selected];
+    setAdminStatus("", "", adminSaveStatus);
+  });
+}
+if (adminPlanSearch) {
+  adminPlanSearch.addEventListener("input", () => {
+    adminPlanFilterText = adminPlanSearch.value || "";
+    renderAdminPlanList();
+  });
+}
+if (adminSaveBtn) {
+  adminSaveBtn.addEventListener("click", saveAdminSelection);
+}
+if (adminLogoutBtn) {
+  adminLogoutBtn.addEventListener("click", logoutAdmin);
+}
 
 async function loadWorkload() {
   showView("workload");
@@ -1534,8 +2648,7 @@ async function loadWorkload() {
     '<div class="loading" style="padding:20px">Loading workload...</div>';
 
   try {
-    const res = await fetch("/api/workload");
-    const data = await res.json();
+    const data = await fetchJson("/api/workload");
     if (data.error) {
       document.getElementById("workloadTable").innerHTML = `<div class="error">${escapeHtml(
         data.error
@@ -1676,6 +2789,21 @@ document.body.addEventListener("click", (e) => {
 });
 
 document.body.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && feedbackExportKeyModal?.getAttribute("aria-hidden") === "false") {
+    closeFeedbackExportKeyModal();
+    return;
+  }
+
+  if (e.key === "Escape" && adminModal?.getAttribute("aria-hidden") === "false") {
+    closeAdminModal();
+    return;
+  }
+
+  if (e.key === "Escape" && feedbackModal?.getAttribute("aria-hidden") === "false") {
+    closeFeedbackModal();
+    return;
+  }
+
   const row = e.target.closest(".overview-row[data-plan-id]");
   if (row && (e.key === "Enter" || e.key === " ")) {
     e.preventDefault();
@@ -1710,5 +2838,21 @@ drilldownDiv.addEventListener("change", (e) => {
   }
 });
 
-loadPlans();
-loadOverview();
+async function bootstrapApp() {
+  await loadAuthConfig();
+  const isAuthorized = await initAuthSession();
+  if (!isAuthorized) return;
+
+  await loadUiConfig();
+  if (feedbackBtn) {
+    feedbackBtn.style.display = uiConfig.feedbackEnabled ? "" : "none";
+  }
+  if (adminBtn) {
+    adminBtn.style.display = uiConfig.adminEnabled ? "" : "none";
+  }
+
+  await loadPlans();
+  await loadOverview();
+}
+
+bootstrapApp();

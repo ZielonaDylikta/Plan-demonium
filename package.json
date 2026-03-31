@@ -1,6 +1,6 @@
 {
-  "name": "planner_stats",
-  "version": "1.0.0",
+  "name": "plan-demonium",
+  "version": "2.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
@@ -8,7 +8,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "Apache-2.0",
+  "license": "ISC",
   "description": "",
   "dependencies": {
     "@azure/msal-node": "^5.1.0",

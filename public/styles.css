@@ -244,6 +244,18 @@ body.mode-workload .mode-badge {
   border-color: var(--accent);
 }
 
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #fff;
+}
+
 .risk-strip {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -460,6 +472,184 @@ body.mode-workload .mode-badge {
   color: var(--text-secondary);
   font-style: italic;
   font-size: 14px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(17, 24, 39, 0.45);
+  z-index: 30;
+}
+
+.modal-card {
+  width: min(540px, 100%);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-lg);
+  padding: 14px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.modal-header h3 {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: 20px;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.modal-close:hover {
+  color: var(--text);
+  background: #f3f4f6;
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-form label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.feedback-form textarea,
+.feedback-form select,
+.feedback-form input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: "Manrope", sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.feedback-form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.feedback-status {
+  min-height: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.feedback-status.success {
+  color: var(--green);
+}
+
+.feedback-status.error {
+  color: var(--red);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-section label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.admin-section input[type="password"],
+.admin-section input[type="text"] {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: "Manrope", sans-serif;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.admin-section input[type="password"] {
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+.admin-help {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.admin-session-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.admin-toggle input {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-plan-list {
+  max-height: 230px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  background: #fbf8f3;
+}
+
+.admin-plan-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.admin-plan-item:hover {
+  background: #eef5f2;
 }
 
 .guided-state {

@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://res.cdn.office.net/teams-js/2.31.0/js/MicrosoftTeams.min.js"></script>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -23,6 +24,8 @@
     </div>
     <button class="btn" id="overviewBtn">Overview</button>
     <button class="btn" id="workloadBtn">Team Workload</button>
+    <button class="btn" id="feedbackBtn" type="button" style="display:none">Feedback</button>
+    <button class="btn" id="adminBtn" type="button" style="display:none">Admin</button>
   </div>
 
   <section class="mode-context" id="modeContext" aria-live="polite">
@@ -64,6 +67,123 @@
     <div class="workload-chart-wrap"><canvas id="workloadChart"></canvas></div>
     <div class="workload-table-wrap" id="workloadTable"></div>
     <div style="margin-top:12px"><button class="btn" id="workloadBackBtn">Back to Overview</button></div>
+  </div>
+
+  <div class="modal-backdrop" id="feedbackModal" aria-hidden="true" style="display:none">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+      <div class="modal-header">
+        <h3 id="feedbackTitle">Send Feedback</h3>
+        <button class="modal-close" id="feedbackCloseBtn" type="button" aria-label="Close feedback form">&times;</button>
+      </div>
+      <form id="feedbackForm" class="feedback-form">
+        <label for="feedbackType">Type</label>
+        <select id="feedbackType" name="type" required>
+          <option value="general">General</option>
+          <option value="bug">Bug</option>
+        </select>
+
+        <label for="feedbackMessage">Message</label>
+        <textarea id="feedbackMessage" name="message" rows="6" maxlength="4000" required placeholder="What should we improve?"></textarea>
+
+        <label for="feedbackContact">Contact (optional)</label>
+        <input id="feedbackContact" name="contact" type="text" maxlength="320" placeholder="Email, Teams handle, etc." />
+
+        <p class="feedback-status" id="feedbackStatus" aria-live="polite"></p>
+
+        <div class="modal-actions">
+          <button class="btn" type="button" id="feedbackExportUnlockBtn" style="display:none; margin-right:auto">Unlock Export</button>
+          <button class="btn" type="button" id="feedbackCancelBtn">Cancel</button>
+          <button class="btn btn-primary" type="submit" id="feedbackSubmitBtn">Send</button>
+        </div>
+      </form>
+
+      <div id="feedbackExportSection" class="admin-section" style="display:none; margin-top:12px">
+        <div id="feedbackExportLockedView">
+          <p class="feedback-status" id="feedbackExportStatus" aria-live="polite"></p>
+        </div>
+
+        <div id="feedbackExportUnlockedView" style="display:none">
+          <p class="admin-session-meta" id="feedbackExportSessionMeta"></p>
+          <p class="feedback-status" id="feedbackExportUnlockedStatus" aria-live="polite"></p>
+          <div class="modal-actions">
+            <button class="btn" type="button" id="feedbackExportLockBtn">Lock</button>
+            <button class="btn btn-primary" type="button" id="feedbackExportDownloadBtn">Export CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="adminModal" aria-hidden="true" style="display:none">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+      <div class="modal-header">
+        <h3 id="adminTitle">Admin Controls</h3>
+        <button class="modal-close" id="adminCloseBtn" type="button" aria-label="Close admin panel">&times;</button>
+      </div>
+
+      <div id="adminLockedView" class="admin-section">
+        <p class="admin-help">Enter your 6-digit admin PIN to unlock dashboard scope controls.</p>
+        <label for="adminPinInput">Admin PIN</label>
+        <input id="adminPinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="######" />
+        <p class="feedback-status" id="adminStatus" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button class="btn" type="button" id="adminUnlockBtn">Unlock</button>
+        </div>
+      </div>
+
+      <div id="adminUnlockedView" class="admin-section" style="display:none">
+        <p class="admin-help">Choose which plans appear in Overview and Workload. Snapshots still capture all plans.</p>
+        <p class="admin-session-meta" id="adminSessionMeta"></p>
+
+        <label for="adminTemplateSelect">Scope template</label>
+        <select id="adminTemplateSelect"></select>
+        <div class="modal-actions" style="justify-content:flex-start">
+          <input id="adminTemplateNameInput" type="text" placeholder="New template name" autocomplete="off" style="flex:1; min-width:180px" />
+          <button class="btn" type="button" id="adminTemplateCreateBtn">Create from current</button>
+          <button class="btn" type="button" id="adminTemplateDeleteBtn">Delete template</button>
+        </div>
+
+        <label>Channel bindings</label>
+        <div class="admin-plan-list" id="adminChannelBindingList" style="max-height:180px"></div>
+        <p class="feedback-status" id="adminChannelStatus" aria-live="polite"></p>
+
+        <label class="admin-toggle" for="adminIncludeAll">
+          <input id="adminIncludeAll" type="checkbox" />
+          <span>View all plans</span>
+        </label>
+
+        <label for="adminPlanSearch">Search plans</label>
+        <input id="adminPlanSearch" type="text" placeholder="Search by plan name..." autocomplete="off" />
+
+        <div class="admin-plan-list" id="adminPlanList"></div>
+
+        <p class="feedback-status" id="adminSaveStatus" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button class="btn" type="button" id="adminLogoutBtn">Lock</button>
+          <button class="btn btn-primary" type="button" id="adminSaveBtn">Save Scope</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="feedbackExportKeyModal" aria-hidden="true" style="display:none">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="feedbackExportKeyTitle">
+      <div class="modal-header">
+        <h3 id="feedbackExportKeyTitle">Unlock Feedback Export</h3>
+        <button class="modal-close" id="feedbackExportKeyCloseBtn" type="button" aria-label="Close key entry">&times;</button>
+      </div>
+
+      <div class="admin-section">
+        <p class="admin-help">Enter developer key to unlock CSV export.</p>
+        <label for="feedbackExportModalKeyInput">Developer Key</label>
+        <input id="feedbackExportModalKeyInput" type="password" autocomplete="off" placeholder="Enter key" />
+        <p class="feedback-status" id="feedbackExportModalStatus" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button class="btn" type="button" id="feedbackExportModalCancelBtn">Cancel</button>
+          <button class="btn btn-primary" type="button" id="feedbackExportModalSubmitBtn">Unlock</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/app.js" defer></script>
